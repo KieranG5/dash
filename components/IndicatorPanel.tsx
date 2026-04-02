@@ -1,0 +1,176 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { generatePriceHistory, extendedTickers } from '@/lib/mockData'
+import { useAlerts } from '@/context/AlertContext'
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ReferenceLine, BarChart, Bar, Cell
+} from 'recharts'
+import { Activity, RefreshCw } from 'lucide-react'
+
+type HistoryPoint = {
+  date: string
+  price: number
+  rsi: number
+  macd: number
+  signal: number
+  histogram: number
+}
+
+interface IndicatorPanelProps {
+  symbol?: string
+}
+
+export default function IndicatorPanel({ symbol: externalSymbol }: IndicatorPanelProps) {
+  const allSymbols = extendedTickers.map(t => t.symbol)
+  const [selected, setSelected] = useState(externalSymbol ?? 'AAPL')
+  const [data, setData] = useState<HistoryPoint[]>([])
+  const [loading, setLoading] = useState(false)
+  const { addAlert } = useAlerts()
+
+  useEffect(() => {
+    if (externalSymbol && externalSymbol !== selected) {
+      setSelected(externalSymbol)
+    }
+  }, [externalSymbol]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const load = useCallback(async (sym: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/history/${sym}`, { cache: 'no-store' })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data?.length > 0) {
+          setData(json.data)
+          const latest: HistoryPoint = json.data[json.data.length - 1]
+          if (latest.rsi < 30) addAlert({ symbol: sym, type: 'BUY', rsi: latest.rsi })
+          if (latest.rsi > 70) addAlert({ symbol: sym, type: 'SELL', rsi: latest.rsi })
+          setLoading(false)
+          return
+        }
+      }
+    } catch {}
+    // Fallback to simulated data
+    const ticker = extendedTickers.find(t => t.symbol === sym)!
+    const fallback = generatePriceHistory(ticker.price)
+    setData(fallback)
+    const latest = fallback[fallback.length - 1]
+    if (latest.rsi < 30) addAlert({ symbol: sym, type: 'BUY', rsi: latest.rsi })
+    if (latest.rsi > 70) addAlert({ symbol: sym, type: 'SELL', rsi: latest.rsi })
+    setLoading(false)
+  }, [addAlert])
+
+  useEffect(() => {
+    load(selected)
+  }, [selected, load])
+
+  if (data.length === 0) return (
+    <section className="bg-[#0d1221] border border-slate-800 rounded-xl p-5 flex items-center justify-center h-64">
+      <span className="text-slate-500 text-sm animate-pulse">Loading indicators...</span>
+    </section>
+  )
+
+  const latest = data[data.length - 1]
+  const rsiSignal = latest.rsi > 70 ? 'SELL' : latest.rsi < 30 ? 'BUY' : 'HOLD'
+  const macdSignal = latest.histogram > 0 ? 'BUY' : latest.histogram < -0.5 ? 'SELL' : 'HOLD'
+
+  const signalColor = (s: string) =>
+    s === 'BUY' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' :
+    s === 'SELL' ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+    'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+
+  const rsiExplanation =
+    rsiSignal === 'BUY'
+      ? `RSI is ${latest.rsi.toFixed(0)} — the asset is oversold. Historically, this can signal a bounce.`
+      : rsiSignal === 'SELL'
+      ? `RSI is ${latest.rsi.toFixed(0)} — the asset is overbought. Momentum may be running out.`
+      : `RSI is ${latest.rsi.toFixed(0)} — in neutral territory. No strong signal yet.`
+
+  const macdExplanation =
+    macdSignal === 'BUY' ? 'MACD histogram is positive — bullish momentum is building.' :
+    macdSignal === 'SELL' ? 'MACD histogram is negative — bearish momentum is building.' :
+    'MACD histogram is near zero — trend is unclear.'
+
+  return (
+    <section className="bg-[#0d1221] border border-slate-800 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-blue-400" />
+          <h2 className="font-semibold text-white">
+            RSI + MACD — <span className="text-blue-400">{selected}</span>
+          </h2>
+          {loading && <RefreshCw className="w-3 h-3 text-slate-500 animate-spin" />}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {allSymbols.map(sym => (
+            <button
+              key={sym}
+              onClick={() => setSelected(sym)}
+              className={`px-2 py-0.5 text-xs rounded transition-all min-h-[28px] ${
+                selected === sym
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              {sym}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-slate-900/50 rounded-lg p-3">
+          <p className="text-xs text-slate-500 mb-1">RSI ({latest.rsi.toFixed(0)})</p>
+          <span className={`inline-block px-2.5 py-0.5 text-xs font-bold rounded border ${signalColor(rsiSignal)}`}>
+            {rsiSignal}
+          </span>
+          <p className="text-xs text-slate-400 mt-2 leading-relaxed">{rsiExplanation}</p>
+        </div>
+        <div className="bg-slate-900/50 rounded-lg p-3">
+          <p className="text-xs text-slate-500 mb-1">MACD ({latest.histogram > 0 ? '+' : ''}{latest.histogram.toFixed(2)})</p>
+          <span className={`inline-block px-2.5 py-0.5 text-xs font-bold rounded border ${signalColor(macdSignal)}`}>
+            {macdSignal}
+          </span>
+          <p className="text-xs text-slate-400 mt-2 leading-relaxed">{macdExplanation}</p>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <p className="text-xs text-slate-500 mb-1">RSI (14)</p>
+        <ResponsiveContainer width="100%" height={80}>
+          <LineChart data={data.slice(-30)}>
+            <XAxis dataKey="date" hide />
+            <YAxis domain={[0, 100]} hide />
+            <Tooltip
+              contentStyle={{ background: '#0d1221', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }}
+              formatter={(v) => [(typeof v === 'number' ? v : 0).toFixed(1), 'RSI'] as [string, string]}
+            />
+            <ReferenceLine y={70} stroke="#f87171" strokeDasharray="3 3" />
+            <ReferenceLine y={30} stroke="#34d399" strokeDasharray="3 3" />
+            <Line type="monotone" dataKey="rsi" stroke="#60a5fa" dot={false} strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div>
+        <p className="text-xs text-slate-500 mb-1">MACD Histogram</p>
+        <ResponsiveContainer width="100%" height={70}>
+          <BarChart data={data.slice(-30)}>
+            <XAxis dataKey="date" hide />
+            <YAxis hide />
+            <Tooltip
+              contentStyle={{ background: '#0d1221', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }}
+              formatter={(v) => [(typeof v === 'number' ? v : 0).toFixed(3), 'Histogram'] as [string, string]}
+            />
+            <Bar dataKey="histogram">
+              {data.slice(-30).map((entry, i) => (
+                <Cell key={i} fill={entry.histogram >= 0 ? '#34d399' : '#f87171'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  )
+}
