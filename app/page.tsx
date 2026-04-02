@@ -11,6 +11,7 @@ import TradingJournal from '@/components/TradingJournal'
 import NewsPanel from '@/components/NewsPanel'
 import ToastContainer from '@/components/ToastContainer'
 import MobileNav from '@/components/MobileNav'
+import WorldClock from '@/components/WorldClock'
 import { BarChart2, Bell } from 'lucide-react'
 
 function Dashboard() {
@@ -71,6 +72,9 @@ function Dashboard() {
 
       {/* Main */}
       <main className="max-w-screen-2xl mx-auto px-4 py-6 space-y-6">
+        {/* World Clock — always visible */}
+        <WorldClock />
+
         {/* Market Overview — always visible on desktop; mobile: 'overview' tab */}
         <div {...show('overview')}>
           <MarketOverview

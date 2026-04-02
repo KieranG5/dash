@@ -6,19 +6,21 @@ const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 type HistoricalRow = { date: Date; close?: number | null }
 
 const SYMBOL_MAP: Record<string, string> = {
-  AAPL: 'AAPL',
-  NVDA: 'NVDA',
-  TSLA: 'TSLA',
-  SPY: 'SPY',
-  MSFT: 'MSFT',
-  AMZN: 'AMZN',
-  META: 'META',
-  GOOGL: 'GOOGL',
-  ES1: 'ES=F',
-  NQ1: 'NQ=F',
-  GC1: 'GC=F',
-  CL1: 'CL=F',
+  // US
+  AAPL: 'AAPL', NVDA: 'NVDA', TSLA: 'TSLA', SPY: 'SPY',
+  MSFT: 'MSFT', AMZN: 'AMZN', META: 'META', GOOGL: 'GOOGL',
+  ES1: 'ES=F', NQ1: 'NQ=F', GC1: 'GC=F', CL1: 'CL=F',
   ZB1: 'ZB=F',
+  // ASX
+  'BHP.AX': 'BHP.AX', 'CBA.AX': 'CBA.AX', 'NAB.AX': 'NAB.AX',
+  'WES.AX': 'WES.AX', 'RIO.AX': 'RIO.AX', 'CSL.AX': 'CSL.AX',
+  'MQG.AX': 'MQG.AX', 'FMG.AX': 'FMG.AX', '^AXJO': '^AXJO',
+  // Japan
+  '7203.T': '7203.T', '6758.T': '6758.T', '9984.T': '9984.T',
+  '6861.T': '6861.T', '^N225': '^N225',
+  // HK
+  '9988.HK': '9988.HK', '0700.HK': '0700.HK',
+  '9618.HK': '9618.HK', '^HSI': '^HSI',
 }
 
 function calcRSI(closes: number[], period = 14): number {

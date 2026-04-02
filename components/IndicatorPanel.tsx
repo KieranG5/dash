@@ -22,6 +22,13 @@ interface IndicatorPanelProps {
   symbol?: string
 }
 
+const SYMBOL_GROUPS = [
+  { label: 'US', syms: extendedTickers.filter(t => t.region === 'us').map(t => t.symbol) },
+  { label: 'ASX', syms: extendedTickers.filter(t => t.region === 'asx').map(t => t.symbol) },
+  { label: 'Japan', syms: extendedTickers.filter(t => t.region === 'japan').map(t => t.symbol) },
+  { label: 'HK', syms: extendedTickers.filter(t => t.region === 'hk').map(t => t.symbol) },
+]
+
 export default function IndicatorPanel({ symbol: externalSymbol }: IndicatorPanelProps) {
   const allSymbols = extendedTickers.map(t => t.symbol)
   const [selected, setSelected] = useState(externalSymbol ?? 'AAPL')
@@ -94,27 +101,34 @@ export default function IndicatorPanel({ symbol: externalSymbol }: IndicatorPane
 
   return (
     <section className="bg-[#0d1221] border border-slate-800 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <Activity className="w-4 h-4 text-blue-400" />
           <h2 className="font-semibold text-white">
             RSI + MACD — <span className="text-blue-400">{selected}</span>
           </h2>
           {loading && <RefreshCw className="w-3 h-3 text-slate-500 animate-spin" />}
         </div>
-        <div className="flex flex-wrap gap-1">
-          {allSymbols.map(sym => (
-            <button
-              key={sym}
-              onClick={() => setSelected(sym)}
-              className={`px-2 py-0.5 text-xs rounded transition-all min-h-[28px] ${
-                selected === sym
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
-              {sym}
-            </button>
+        <div className="space-y-1.5">
+          {SYMBOL_GROUPS.map(group => (
+            <div key={group.label} className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 w-10 flex-shrink-0">{group.label}</span>
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-0.5">
+                {group.syms.map(sym => (
+                  <button
+                    key={sym}
+                    onClick={() => setSelected(sym)}
+                    className={`px-2 py-0.5 text-xs rounded transition-all flex-shrink-0 min-h-[26px] ${
+                      selected === sym
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
