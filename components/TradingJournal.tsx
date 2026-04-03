@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { BookMarked, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
+import { BookMarked, Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 interface Trade {
   id: string
   ticker: string
   entry: number
-  exit: number
+  exit: number | null   // null = open trade
   shares: number
   notes: string
   date: string
@@ -16,7 +16,7 @@ interface Trade {
 const sampleTrades: Trade[] = [
   { id: '1', ticker: 'AAPL', entry: 210.00, exit: 218.50, shares: 50, notes: 'RSI bounce from 28, held 3 days', date: '2025-10-14' },
   { id: '2', ticker: 'NVDA', entry: 890.00, exit: 875.00, shares: 10, notes: 'Missed the breakdown signal, cut quickly', date: '2025-10-18' },
-  { id: '3', ticker: 'SPY', entry: 518.00, exit: 524.20, shares: 20, notes: 'FOMC day gap fill — textbook setup', date: '2025-10-22' },
+  { id: '3', ticker: 'SPY', entry: 518.00, exit: null, shares: 20, notes: 'FOMC gap fill — still holding', date: '2025-10-22' },
 ]
 
 export default function TradingJournal() {
@@ -24,15 +24,18 @@ export default function TradingJournal() {
   const [form, setForm] = useState({ ticker: '', entry: '', exit: '', shares: '', notes: '' })
   const [adding, setAdding] = useState(false)
 
-  const totalPnL = trades.reduce((sum, t) => sum + (t.exit - t.entry) * t.shares, 0)
+  // Only sum closed trades for the P&L total
+  const totalPnL = trades
+    .filter(t => t.exit !== null)
+    .reduce((sum, t) => sum + (t.exit! - t.entry) * t.shares, 0)
 
   function addTrade() {
-    if (!form.ticker || !form.entry || !form.exit || !form.shares) return
+    if (!form.ticker || !form.entry || !form.shares) return
     const trade: Trade = {
       id: Date.now().toString(),
       ticker: form.ticker.toUpperCase(),
       entry: parseFloat(form.entry),
-      exit: parseFloat(form.exit),
+      exit: form.exit !== '' ? parseFloat(form.exit) : null,
       shares: parseInt(form.shares),
       notes: form.notes,
       date: new Date().toISOString().split('T')[0],
@@ -70,17 +73,41 @@ export default function TradingJournal() {
       {adding && (
         <div className="mb-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700 space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <input placeholder="Ticker (e.g. AAPL)" value={form.ticker} onChange={e => setForm({ ...form, ticker: e.target.value })}
-              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" />
-            <input type="number" placeholder="Shares" value={form.shares} onChange={e => setForm({ ...form, shares: e.target.value })}
-              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" />
-            <input type="number" placeholder="Entry price" value={form.entry} onChange={e => setForm({ ...form, entry: e.target.value })}
-              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" />
-            <input type="number" placeholder="Exit price" value={form.exit} onChange={e => setForm({ ...form, exit: e.target.value })}
-              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" />
+            <input
+              placeholder="Ticker (e.g. AAPL)"
+              value={form.ticker}
+              onChange={e => setForm({ ...form, ticker: e.target.value })}
+              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all"
+            />
+            <input
+              type="number"
+              placeholder="Shares"
+              value={form.shares}
+              onChange={e => setForm({ ...form, shares: e.target.value })}
+              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all"
+            />
+            <input
+              type="number"
+              placeholder="Entry price *"
+              value={form.entry}
+              onChange={e => setForm({ ...form, entry: e.target.value })}
+              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all"
+            />
+            <input
+              type="number"
+              placeholder="Exit price (optional)"
+              value={form.exit}
+              onChange={e => setForm({ ...form, exit: e.target.value })}
+              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all"
+            />
           </div>
-          <input placeholder="Notes (optional)" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
-            className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" />
+          <input
+            placeholder="Notes (optional)"
+            value={form.notes}
+            onChange={e => setForm({ ...form, notes: e.target.value })}
+            className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all"
+          />
+          <p className="text-xs text-slate-600">* Required. Leave exit price blank to save as an open trade.</p>
           <div className="flex gap-2">
             <button onClick={addTrade} className="px-4 py-1.5 bg-pink-600 hover:bg-pink-500 text-white text-xs font-medium rounded transition-all">
               Add Trade
@@ -95,23 +122,48 @@ export default function TradingJournal() {
       {/* Trade list */}
       <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-hide">
         {trades.map(t => {
-          const pnl = (t.exit - t.entry) * t.shares
-          const pnlPct = ((t.exit - t.entry) / t.entry) * 100
-          const win = pnl >= 0
+          const isOpen = t.exit === null
+          const pnl = isOpen ? null : (t.exit! - t.entry) * t.shares
+          const pnlPct = isOpen ? null : ((t.exit! - t.entry) / t.entry) * 100
+          const win = pnl !== null && pnl >= 0
+
           return (
-            <div key={t.id} className={`p-3 rounded-lg border ${win ? 'border-emerald-900/50 bg-emerald-900/10' : 'border-red-900/50 bg-red-900/10'}`}>
+            <div
+              key={t.id}
+              className={`p-3 rounded-lg border ${
+                isOpen
+                  ? 'border-yellow-800/50 bg-yellow-900/10'
+                  : win
+                  ? 'border-emerald-900/50 bg-emerald-900/10'
+                  : 'border-red-900/50 bg-red-900/10'
+              }`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  {win ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                  {isOpen
+                    ? <Minus className="w-3.5 h-3.5 text-yellow-400" />
+                    : win
+                    ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    : <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                  }
                   <span className="font-bold text-white text-sm">{t.ticker}</span>
                   <span className="text-xs text-slate-500">{t.shares} shares</span>
+                  {/* Status badge */}
+                  {isOpen
+                    ? <span className="text-xs font-semibold text-yellow-400 bg-yellow-400/10 border border-yellow-400/25 px-1.5 py-0.5 rounded">Open</span>
+                    : <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-1.5 py-0.5 rounded">Closed</span>
+                  }
                   <span className="text-xs text-slate-600">{t.date}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`font-bold text-sm font-mono ${win ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {win ? '+' : ''}${pnl.toFixed(2)}{' '}
-                    <span className="text-xs font-normal">({win ? '+' : ''}{pnlPct.toFixed(2)}%)</span>
-                  </span>
+                  {isOpen ? (
+                    <span className="font-bold text-sm font-mono text-yellow-400">Open</span>
+                  ) : (
+                    <span className={`font-bold text-sm font-mono ${win ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {win ? '+' : ''}${pnl!.toFixed(2)}{' '}
+                      <span className="text-xs font-normal">({win ? '+' : ''}{pnlPct!.toFixed(2)}%)</span>
+                    </span>
+                  )}
                   <button onClick={() => deleteTrade(t.id)} className="text-slate-600 hover:text-red-400 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -119,7 +171,10 @@ export default function TradingJournal() {
               </div>
               <div className="flex items-center gap-3 mt-1 ml-5">
                 <span className="text-xs text-slate-500">Entry: <span className="text-slate-300">${t.entry}</span></span>
-                <span className="text-xs text-slate-500">Exit: <span className="text-slate-300">${t.exit}</span></span>
+                {isOpen
+                  ? <span className="text-xs text-slate-500">Exit: <span className="text-yellow-500">pending</span></span>
+                  : <span className="text-xs text-slate-500">Exit: <span className="text-slate-300">${t.exit}</span></span>
+                }
               </div>
               {t.notes && <p className="text-xs text-slate-500 mt-1.5 ml-5 italic">&ldquo;{t.notes}&rdquo;</p>}
             </div>
