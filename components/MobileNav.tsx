@@ -1,12 +1,13 @@
 'use client'
 
-import { BarChart2, Activity, Calculator, FlaskConical, BookMarked } from 'lucide-react'
+import { BarChart2, Activity, Calculator, FlaskConical, BriefcaseBusiness, BookMarked } from 'lucide-react'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart2 },
   { id: 'signals', label: 'Signals', icon: Activity },
   { id: 'calc', label: 'Calc', icon: Calculator },
   { id: 'backtest', label: 'Backtest', icon: FlaskConical },
+  { id: 'portfolio', label: 'Portfolio', icon: BriefcaseBusiness },
   { id: 'journal', label: 'Journal', icon: BookMarked },
 ]
 

@@ -6,12 +6,14 @@ import MarketOverview from '@/components/MarketOverview'
 import IndicatorPanel from '@/components/IndicatorPanel'
 import PositionSizer from '@/components/PositionSizer'
 import BacktestSimulator from '@/components/BacktestSimulator'
+import PortfolioManager from '@/components/PortfolioManager'
 import QuantReference from '@/components/QuantReference'
 import TradingJournal from '@/components/TradingJournal'
 import NewsPanel from '@/components/NewsPanel'
 import ToastContainer from '@/components/ToastContainer'
 import MobileNav from '@/components/MobileNav'
 import WorldClock from '@/components/WorldClock'
+import QuickActions from '@/components/QuickActions'
 import { BarChart2, Bell } from 'lucide-react'
 
 function Dashboard() {
@@ -24,6 +26,18 @@ function Dashboard() {
   const show = (tabId: string) => ({
     className: mobileTab === tabId ? 'block' : 'hidden sm:block',
   })
+
+  function selectSymbol(symbol: string) {
+    setSelectedSymbol(symbol)
+    setMobileTab('signals')
+  }
+
+  function openTool(tool: 'signals' | 'calc' | 'backtest' | 'portfolio' | 'journal') {
+    setMobileTab(tool)
+    requestAnimationFrame(() => {
+      document.getElementById(tool)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] pb-16 sm:pb-0">
@@ -75,10 +89,16 @@ function Dashboard() {
         {/* World Clock — always visible */}
         <WorldClock />
 
+        <QuickActions
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={selectSymbol}
+          onOpenTool={openTool}
+        />
+
         {/* Market Overview — always visible on desktop; mobile: 'overview' tab */}
         <div {...show('overview')}>
           <MarketOverview
-            onSelectSymbol={sym => { setSelectedSymbol(sym); setMobileTab('signals') }}
+            onSelectSymbol={selectSymbol}
             selectedSymbol={selectedSymbol}
             onLiveStatus={setIsLive}
           />
@@ -86,17 +106,22 @@ function Dashboard() {
 
         {/* Signals + Calculator row */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div {...show('signals')}>
+          <div id="signals" className={`scroll-mt-24 ${show('signals').className}`}>
             <IndicatorPanel symbol={selectedSymbol} />
           </div>
-          <div {...show('calc')}>
+          <div id="calc" className={`scroll-mt-24 ${show('calc').className}`}>
             <PositionSizer />
           </div>
         </div>
 
         {/* Backtest */}
-        <div {...show('backtest')}>
-          <BacktestSimulator />
+        <div id="backtest" className={`scroll-mt-24 ${show('backtest').className}`}>
+          <BacktestSimulator symbol={selectedSymbol} />
+        </div>
+
+        {/* Portfolio Management */}
+        <div id="portfolio" className={`scroll-mt-24 ${show('portfolio').className}`}>
+          <PortfolioManager />
         </div>
 
         {/* Reference + Journal row */}
@@ -105,17 +130,14 @@ function Dashboard() {
           <div className="hidden sm:block">
             <QuantReference />
           </div>
-          <div {...show('journal')}>
-            <TradingJournal />
+          <div id="journal" className={`scroll-mt-24 ${show('journal').className}`}>
+            <TradingJournal symbol={selectedSymbol} />
           </div>
         </div>
 
-        {/* News — on desktop always; on mobile under 'overview' tab at bottom */}
-        <div className="hidden sm:block">
-          <NewsPanel />
-        </div>
-        <div className={mobileTab === 'overview' ? 'block sm:hidden' : 'hidden'}>
-          <NewsPanel />
+        {/* News - desktop always; mobile under the overview tab */}
+        <div className={mobileTab === 'overview' ? 'block' : 'hidden sm:block'}>
+          <NewsPanel symbol={selectedSymbol} />
         </div>
       </main>
 

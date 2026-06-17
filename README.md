@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuantDash
 
-## Getting Started
+QuantDash is a responsive educational trading dashboard with current market
+quotes, technical indicators, position sizing, simulated backtesting, a paper
+trading journal, and a market-news demo feed.
 
-First, run the development server:
+## View Locally
 
-```bash
+Requirements:
+
+- Node.js 20.9 or newer
+- npm
+
+From this folder, run:
+
+```powershell
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open the local address printed in the terminal, normally:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+For a production-style local preview:
 
-## Learn More
+```powershell
+npm run preview
+```
 
-To learn more about Next.js, take a look at the following resources:
+You can also double-click `start-local.bat` on Windows. It installs missing
+packages, starts the development server, and opens QuantDash in your browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Main Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Latest quotes covering US, Australian, Japanese, Hong Kong, and futures markets
+- RSI and MACD analysis backed by recent market history
+- Fixed-fractional position sizing calculator
+- Clearly labelled synthetic backtest simulator
+- Browser-persistent paper trading journal
+- Quick Actions for navigating tickers and existing dashboard tools
+- Responsive desktop and mobile layouts
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Market information is supplied for educational use and may be delayed. QuantDash
+does not provide financial advice.

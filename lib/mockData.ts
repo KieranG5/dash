@@ -62,12 +62,24 @@ export const extendedTickers: Ticker[] = [
 
 export const ALL_SYMBOLS = extendedTickers.map(t => t.symbol)
 
-// Must only be called inside useEffect (uses Math.random)
-export function generateSparkline(basePrice: number, days = 7): number[] {
+function hashSymbol(symbol: string): number {
+  return Array.from(symbol).reduce((hash, char) => ((hash * 31) + char.charCodeAt(0)) >>> 0, 2166136261)
+}
+
+function seededRandom(seed: number) {
+  let state = seed >>> 0
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 4294967296
+  }
+}
+
+export function generateSparkline(basePrice: number, symbol = 'MARKET', days = 7): number[] {
+  const random = seededRandom(hashSymbol(symbol))
   const out: number[] = []
   let price = basePrice * 0.97
   for (let i = 0; i < days; i++) {
-    price = price + (Math.random() - 0.48) * basePrice * 0.02
+    price = price + (random() - 0.48) * basePrice * 0.02
     out.push(+price.toFixed(2))
   }
   return out
@@ -117,7 +129,8 @@ export function generatePriceHistory(basePrice: number, days = 60) {
 }
 
 // Backtest data
-export function runBacktest(initialCapital = 100000) {
+export function runBacktest(initialCapital = 100000, seed = 42) {
+  const random = seededRandom(seed)
   let equity = initialCapital
   const equityCurve: { day: number; equity: number; drawdown: number }[] = []
   const trades: { pnl: number; win: boolean }[] = []
@@ -125,12 +138,12 @@ export function runBacktest(initialCapital = 100000) {
   let maxDrawdown = 0
 
   for (let i = 0; i < 252; i++) {
-    const inTrade = Math.random() < 0.15
+    const inTrade = random() < 0.15
     if (inTrade) {
-      const win = Math.random() < 0.56
+      const win = random() < 0.56
       const pnl = win
-        ? equity * (Math.random() * 0.018 + 0.003)
-        : -equity * (Math.random() * 0.012 + 0.002)
+        ? equity * (random() * 0.018 + 0.003)
+        : -equity * (random() * 0.012 + 0.002)
       equity += pnl
       trades.push({ pnl, win })
     }

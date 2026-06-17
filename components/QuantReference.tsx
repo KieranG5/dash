@@ -1,98 +1,203 @@
 'use client'
 
-import { useState } from 'react'
-import { BookOpen } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { BookOpen, Lightbulb } from 'lucide-react'
 
-const formulas = [
+type FormulaCategory = 'risk' | 'performance' | 'portfolio'
+
+type Formula = {
+  id: string
+  name: string
+  category: FormulaCategory
+  formula: string
+  plain: string
+  use: string
+  limit: string
+  quickRead: string
+  color: string
+}
+
+const formulas: Formula[] = [
   {
-    name: 'Sharpe Ratio',
-    formula: 'S = (Rp − Rf) / σp',
-    color: 'text-blue-400',
-    badge: 'bg-blue-400/10 border-blue-400/20',
-    explanation: 'Measures return per unit of risk. Above 1.0 is good; above 2.0 is excellent. If your strategy earns 15% with low volatility, it has a high Sharpe. A strategy earning 20% with wild swings might have a lower Sharpe than one earning 12% steadily.',
-    vars: [
-      { sym: 'Rp', def: 'Portfolio return' },
-      { sym: 'Rf', def: 'Risk-free rate (e.g. T-bills ~5%)' },
-      { sym: 'σp', def: 'Std deviation of portfolio returns' },
-    ],
-  },
-  {
-    name: 'Alpha (α)',
-    formula: 'α = Rp − [Rf + β(Rm − Rf)]',
-    color: 'text-emerald-400',
-    badge: 'bg-emerald-400/10 border-emerald-400/20',
-    explanation: "Alpha is your 'edge' — the return above what the market would predict. Positive alpha means you outperformed. Negative alpha means the market beat you after adjusting for risk. Most active managers have zero or negative alpha after fees.",
-    vars: [
-      { sym: 'Rp', def: 'Your portfolio return' },
-      { sym: 'Rm', def: 'Market return (e.g. S&P 500)' },
-      { sym: 'β', def: 'Beta (how much you move with the market)' },
-      { sym: 'Rf', def: 'Risk-free rate' },
-    ],
-  },
-  {
-    name: 'Beta (β)',
-    formula: 'β = Cov(Rp, Rm) / Var(Rm)',
+    id: 'risk-reward',
+    name: 'Risk / Reward',
+    category: 'risk',
+    formula: 'R = reward / risk',
+    plain: 'Compares what you can make against what you are risking.',
+    use: 'Use before entering a trade. A 2R setup means the target is twice as far from entry as the stop.',
+    limit: 'A high R does not mean a high probability. Bad entries can still lose.',
+    quickRead: '1R is breakeven logic, 2R+ is usually cleaner.',
     color: 'text-purple-400',
-    badge: 'bg-purple-400/10 border-purple-400/20',
-    explanation: "Beta measures how your portfolio moves relative to the market. β=1 means you move in lockstep with the S&P 500. β=1.5 means you're 50% more volatile. β=0.5 means you're half as volatile. Tech stocks often have β>1; utilities often have β<1.",
-    vars: [
-      { sym: 'Cov(Rp,Rm)', def: 'Covariance of portfolio vs market returns' },
-      { sym: 'Var(Rm)', def: 'Variance of market returns' },
-    ],
   },
   {
+    id: 'position-size',
+    name: 'Position Size',
+    category: 'risk',
+    formula: 'shares = dollar risk / risk per share',
+    plain: 'Converts your risk limit into a share count.',
+    use: 'Use with the position calculator so each trade risks the same percentage of account capital.',
+    limit: 'Does not handle slippage or gaps through your stop.',
+    quickRead: 'Controls damage before chasing returns.',
+    color: 'text-pink-400',
+  },
+  {
+    id: 'sharpe',
+    name: 'Sharpe Ratio',
+    category: 'performance',
+    formula: 'Sharpe = (return - risk free rate) / volatility',
+    plain: 'Measures return per unit of volatility.',
+    use: 'Use to compare strategies. A smoother strategy can beat a higher-return but chaotic one.',
+    limit: 'Can look too good when returns are not normally distributed or sample size is small.',
+    quickRead: '>1 is useful, >2 is strong.',
+    color: 'text-blue-400',
+  },
+  {
+    id: 'drawdown',
+    name: 'Max Drawdown',
+    category: 'performance',
+    formula: 'drawdown = (peak - trough) / peak',
+    plain: 'Shows the worst fall from a high point.',
+    use: 'Use to judge whether you could emotionally and financially survive a strategy.',
+    limit: 'Future drawdowns can be worse than historical drawdowns.',
+    quickRead: 'Lower drawdown is easier to stick with.',
+    color: 'text-red-400',
+  },
+  {
+    id: 'alpha',
+    name: 'Alpha',
+    category: 'performance',
+    formula: 'alpha = strategy return - expected market return',
+    plain: 'Shows whether you beat the market after adjusting for market exposure.',
+    use: 'Use in backtesting and portfolio review to see if active decisions added value.',
+    limit: 'Needs a sensible benchmark. A bad benchmark makes alpha misleading.',
+    quickRead: 'Positive alpha means your decisions helped.',
+    color: 'text-emerald-400',
+  },
+  {
+    id: 'beta',
+    name: 'Beta',
+    category: 'portfolio',
+    formula: 'beta = covariance(asset, market) / market variance',
+    plain: 'Measures how much an asset tends to move with the market.',
+    use: 'Use in portfolio management to understand market sensitivity and concentration.',
+    limit: 'Beta changes over time and can break down in market stress.',
+    quickRead: '1 moves like market, >1 more aggressive, <1 calmer.',
+    color: 'text-cyan-400',
+  },
+  {
+    id: 'kelly',
     name: 'Kelly Criterion',
-    formula: 'f* = (bp − q) / b',
+    category: 'risk',
+    formula: 'f* = (bp - q) / b',
+    plain: 'Estimates optimal bet size from win rate and win/loss ratio.',
+    use: 'Use as an upper limit, not a default. Many traders use half-Kelly or less.',
+    limit: 'Very sensitive to wrong win-rate assumptions.',
+    quickRead: 'Good for discipline, dangerous when overtrusted.',
     color: 'text-orange-400',
-    badge: 'bg-orange-400/10 border-orange-400/20',
-    explanation: "Kelly tells you the optimal % of capital to bet on each trade to maximise long-term growth without going broke. Most traders use half-Kelly (f*/2) to reduce volatility. Example: 55% win rate, 1:1 R/R → f* = 10% of account per trade.",
-    vars: [
-      { sym: 'b', def: 'Net odds (profit/loss ratio, e.g. 1.0 for 1:1 R:R)' },
-      { sym: 'p', def: 'Probability of winning (e.g. 0.55)' },
-      { sym: 'q', def: '1 − p (probability of losing)' },
-    ],
   },
 ]
 
+const categories: Array<{ id: 'all' | FormulaCategory; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'risk', label: 'Risk' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'portfolio', label: 'Portfolio' },
+]
+
 export default function QuantReference() {
-  const [open, setOpen] = useState<string | null>('Sharpe Ratio')
+  const [category, setCategory] = useState<'all' | FormulaCategory>('risk')
+  const [selectedId, setSelectedId] = useState('risk-reward')
+
+  const visible = useMemo(
+    () => category === 'all' ? formulas : formulas.filter(item => item.category === category),
+    [category]
+  )
+  const selected = formulas.find(item => item.id === selectedId) ?? formulas[0]
 
   return (
     <section className="bg-[#0d1221] border border-slate-800 rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <BookOpen className="w-4 h-4 text-cyan-400" />
-        <h2 className="font-semibold text-white">Quant Math Reference</h2>
+      <div className="mb-4 flex items-start gap-3">
+        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-2">
+          <BookOpen className="h-4 w-4 text-cyan-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-white">Quant Math Reference</h2>
+          <p className="text-xs text-slate-500">Quick formulas with practical trading limits.</p>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {formulas.map(f => (
-          <div key={f.name} className="border border-slate-800 rounded-lg overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/50 transition-all text-left"
-              onClick={() => setOpen(open === f.name ? null : f.name)}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded border ${f.badge} ${f.color}`}>{f.name}</span>
-                <code className={`font-mono text-sm ${f.color}`}>{f.formula}</code>
-              </div>
-              <span className={`text-slate-500 text-lg transition-transform ${open === f.name ? 'rotate-45' : ''}`}>+</span>
-            </button>
-            {open === f.name && (
-              <div className="px-4 pb-4 bg-slate-900/30">
-                <p className="text-sm text-slate-300 leading-relaxed mb-3">{f.explanation}</p>
-                <div className="space-y-1">
-                  {f.vars.map(v => (
-                    <div key={v.sym} className="flex items-start gap-2">
-                      <code className={`text-xs font-mono font-bold ${f.color} min-w-[80px]`}>{v.sym}</code>
-                      <span className="text-xs text-slate-400">{v.def}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+      <div className="mb-4 flex gap-2 overflow-x-auto scrollbar-hide">
+        {categories.map(item => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setCategory(item.id)
+              const next = item.id === 'all' ? formulas[0] : formulas.find(formula => formula.category === item.id)
+              if (next) setSelectedId(next.id)
+            }}
+            className={`flex-shrink-0 rounded px-2.5 py-1 text-xs transition-colors ${
+              category === item.id ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            }`}
+          >
+            {item.label}
+          </button>
         ))}
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.9fr_1.2fr]">
+        <div className="space-y-2">
+          {visible.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setSelectedId(item.id)}
+              className={`w-full rounded-lg border p-3 text-left transition-all ${
+                selected.id === item.id
+                  ? 'border-cyan-500/40 bg-cyan-500/10'
+                  : 'border-slate-800 bg-slate-950/30 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className={`text-sm font-semibold ${item.color}`}>{item.name}</p>
+                <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] uppercase text-slate-500">{item.category}</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{item.quickRead}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+          <div className="mb-3">
+            <p className={`text-sm font-semibold ${selected.color}`}>{selected.name}</p>
+            <code className="mt-1 block rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-200">
+              {selected.formula}
+            </code>
+          </div>
+
+          <div className="space-y-3">
+            <InfoBlock label="Plain English" text={selected.plain} />
+            <InfoBlock label="Use In This App" text={selected.use} />
+            <InfoBlock label="Limit" text={selected.limit} muted />
+          </div>
+
+          <div className="mt-4 flex gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-3">
+            <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-cyan-400" />
+            <p className="text-xs leading-relaxed text-cyan-100">
+              Best flow: size the trade first, check the R multiple, then review journal results and backtest metrics later.
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
+  )
+}
+
+function InfoBlock({ label, text, muted }: { label: string; text: string; muted?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-slate-600">{label}</p>
+      <p className={`mt-0.5 text-sm leading-relaxed ${muted ? 'text-slate-500' : 'text-slate-300'}`}>{text}</p>
+    </div>
   )
 }

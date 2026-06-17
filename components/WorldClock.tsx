@@ -32,9 +32,13 @@ export default function WorldClock() {
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
-    setNow(new Date())
-    const interval = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(interval)
+    const tick = () => setNow(new Date())
+    const frame = requestAnimationFrame(tick)
+    const interval = setInterval(tick, 1000)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearInterval(interval)
+    }
   }, [])
 
   if (!now) return null

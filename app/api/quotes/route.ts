@@ -61,7 +61,15 @@ export async function GET() {
       return null
     }).filter(Boolean)
 
-    return NextResponse.json({ quotes, timestamp: Date.now() })
+    return NextResponse.json(
+      {
+        quotes,
+        timestamp: Date.now(),
+        received: quotes.length,
+        requested: displaySymbols.length,
+      },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    )
   } catch (err) {
     console.error('Quotes fetch error:', err)
     return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 })

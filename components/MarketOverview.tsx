@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { extendedTickers, generateSparkline, type Ticker } from '@/lib/mockData'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { LineChart, Line, ResponsiveContainer } from 'recharts'
 
 interface LiveQuote {
   symbol: string
@@ -82,9 +81,8 @@ function isMarketOpen(market: 'asx' | 'japan' | 'hk' | 'us'): boolean {
 }
 
 function MarketStatusBadge({ market }: { market: 'asx' | 'japan' | 'hk' | 'us' }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() => isMarketOpen(market))
   useEffect(() => {
-    setOpen(isMarketOpen(market))
     const t = setInterval(() => setOpen(isMarketOpen(market)), 60_000)
     return () => clearInterval(t)
   }, [market])
@@ -112,15 +110,14 @@ function SectionHeader({ label, market }: { label: string; market: 'asx' | 'japa
 export default function MarketOverview({ onSelectSymbol, selectedSymbol, onLiveStatus }: MarketOverviewProps) {
   const [tickerList, setTickerList] = useState<Ticker[]>(extendedTickers)
   const [isLive, setIsLive] = useState<boolean | null>(null)
-  const [sparklines, setSparklines] = useState<Record<string, number[]>>({})
-
-  useEffect(() => {
-    const sp: Record<string, number[]> = {}
-    for (const t of extendedTickers) {
-      sp[t.symbol] = generateSparkline(t.price)
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null)
+  const [sparklines] = useState<Record<string, number[]>>(() => {
+    const values: Record<string, number[]> = {}
+    for (const ticker of extendedTickers) {
+      values[ticker.symbol] = generateSparkline(ticker.price, ticker.symbol)
     }
-    setSparklines(sp)
-  }, [])
+    return values
+  })
 
   const refresh = useCallback(async () => {
     try {
@@ -131,6 +128,7 @@ export default function MarketOverview({ onSelectSymbol, selectedSymbol, onLiveS
 
       if (quotes.length > 0) {
         setIsLive(true)
+        setLastUpdated(json.timestamp ?? Date.now())
         onLiveStatus?.(true)
         setTickerList(prev => prev.map(t => {
           const q = quotes.find(q => q.symbol === t.symbol)
@@ -138,12 +136,6 @@ export default function MarketOverview({ onSelectSymbol, selectedSymbol, onLiveS
           return { ...t, price: q.price, change: q.change, changePct: q.changePct, volume: formatVolume(q.volume) }
         }))
 
-        for (const sym of extendedTickers.map(t => t.symbol)) {
-          fetch(`/api/history/${sym}`, { cache: 'no-store' })
-            .then(r => r.json())
-            .then(d => { if (d.sparkline?.length > 0) setSparklines(prev => ({ ...prev, [sym]: d.sparkline })) })
-            .catch(() => {})
-        }
       } else {
         setIsLive(false)
         onLiveStatus?.(false)
@@ -184,12 +176,17 @@ export default function MarketOverview({ onSelectSymbol, selectedSymbol, onLiveS
         {isLive === null && <span className="text-xs text-slate-500 animate-pulse">Connecting...</span>}
         {isLive === true && (
           <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full border border-emerald-400/20">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Live
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Latest quotes
           </span>
         )}
         {isLive === false && (
           <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-400/10 px-2.5 py-1 rounded-full border border-red-400/20">
             <span className="w-1.5 h-1.5 bg-red-400 rounded-full" /> Offline · Simulated
+          </span>
+        )}
+        {lastUpdated && (
+          <span className="text-xs text-slate-600">
+            Updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
       </div>
@@ -242,7 +239,6 @@ function TickerCard({ ticker, sparkline, selected, onClick }: {
   const pos = ticker.changePct > 0
   const neg = ticker.changePct < 0
   const Icon = pos ? TrendingUp : neg ? TrendingDown : Minus
-  const sparkData = sparkline.map((v, i) => ({ i, v }))
   const strokeColor = pos ? '#34d399' : neg ? '#f87171' : '#64748b'
 
   return (
@@ -263,13 +259,9 @@ function TickerCard({ ticker, sparkline, selected, onClick }: {
         <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${pos ? 'text-emerald-400' : neg ? 'text-red-400' : 'text-slate-500'}`} />
       </div>
 
-      {sparkData.length > 0 && (
-        <div className="h-7 my-1 -mx-1">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={sparkData}>
-              <Line type="monotone" dataKey="v" stroke={strokeColor} dot={false} strokeWidth={1.5} />
-            </LineChart>
-          </ResponsiveContainer>
+      {sparkline.length > 1 && (
+        <div className="h-7 min-w-0 my-1 -mx-1">
+          <Sparkline values={sparkline} color={strokeColor} />
         </div>
       )}
 
@@ -283,5 +275,34 @@ function TickerCard({ ticker, sparkline, selected, onClick }: {
         <span className="text-xs text-slate-600">{ticker.volume}</span>
       </div>
     </button>
+  )
+}
+
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const points = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * 100
+    const y = 25 - ((value - min) / range) * 20
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <svg
+      viewBox="0 0 100 30"
+      preserveAspectRatio="none"
+      className="block h-full w-full"
+      role="img"
+      aria-label="Recent price trend"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   )
 }
